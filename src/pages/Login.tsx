@@ -38,7 +38,8 @@ const Login = () => {
               <p className="font-medium">Akun demo:</p>
               <p>Admin: admin@travel.com / password</p>
               <p>User: user@travel.com / password</p>
-              <p>Driver: driver@travel.com / password</p>
+              <p>Driver: budi@travel.com / password</p>
+              <P>Driver: joko@travel.com / password</P>
             </div>
           </CardContent>
           <CardFooter className="flex-col gap-2">
