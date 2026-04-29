@@ -39,7 +39,7 @@ const Login = () => {
               <p>Admin: admin@travel.com / password</p>
               <p>User: user@travel.com / password</p>
               <p>Driver: budi@travel.com / password</p>
-              <P>Driver: joko@travel.com / password</P>
+              <p>Driver: joko@travel.com / password</p>
             </div>
           </CardContent>
           <CardFooter className="flex-col gap-2">
