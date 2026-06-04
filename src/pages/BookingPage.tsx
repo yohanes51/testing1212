@@ -1,19 +1,22 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { useData } from "@/contexts/DataContext";
 import { Navigate } from "react-router-dom";
+import { toast } from "sonner";
 
 const BookingPage = () => {
   const { user } = useAuth();
-  const { bookings, destinasi } = useData();
+  const { bookings, destinasi, payBooking } = useData();
 
   if (!user) return <Navigate to="/login" />;
 
   const myBookings = bookings.filter((b) => b.userId === user.id);
 
   return (
-    <div className="container py-8 max-w-4xl">
+    <div className="container py-8 max-w-5xl">
       <Card>
         <CardHeader>
           <CardTitle>Booking Saya</CardTitle>
@@ -30,6 +33,7 @@ const BookingPage = () => {
                   <TableHead>Tanggal</TableHead>
                   <TableHead>Detail</TableHead>
                   <TableHead className="text-right">Total</TableHead>
+                  <TableHead className="text-center">Pembayaran</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -50,6 +54,22 @@ const BookingPage = () => {
                       <TableCell>{b.tanggal}</TableCell>
                       <TableCell>{detail}</TableCell>
                       <TableCell className="text-right font-bold">Rp {(b.hargaTotal ?? 0).toLocaleString("id-ID")}</TableCell>
+                      <TableCell className="text-center">
+                        {b.statusPembayaran === "lunas" ? (
+                          <Badge variant="default">Lunas</Badge>
+                        ) : (
+                          <Button 
+                            size="sm" 
+                            variant="secondary"
+                            onClick={() => {
+                              payBooking(b.id);
+                              toast.success("Pembayaran berhasil diproses!");
+                            }}
+                          >
+                            Bayar Sekarang
+                          </Button>
+                        )}
+                      </TableCell>
                     </TableRow>
                   );
                 })}

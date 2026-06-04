@@ -2,11 +2,7 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 
 export type Kategori = "wisata" | "travel-mobil";
 export type BookingStatus = "menunggu" | "dijadwalkan" | "menuju-lokasi" | "dalam-perjalanan" | "selesai";
-// Mode booking:
-// - wisata-paket  : ikut paket wisata (harga * jumlah orang)
-// - wisata-sewa   : sewa mobil saja untuk destinasi bebas (tarifSewaPerHari * jumlahHari)
-// - travel-sekali : travel sekali jalan (harga * jumlah orang)
-// - travel-sewa   : sewa unit mobil penuh (tarifSewaPerHari * jumlahHari)
+export type PaymentStatus = "pending" | "lunas";
 export type BookingMode = "wisata-paket" | "wisata-sewa" | "travel-sekali" | "travel-sewa";
 
 export interface Destinasi {
@@ -34,6 +30,7 @@ export interface Booking {
   hargaTotal: number;
   driverId?: number;
   status: BookingStatus;
+  statusPembayaran: PaymentStatus;
 }
 
 export interface TravelTripGroup {
@@ -45,6 +42,7 @@ export interface TravelTripGroup {
   totalPenumpang: number;
   driverId?: number;
   status: BookingStatus;
+  allPaid: boolean;
 }
 
 interface DataContextType {
@@ -53,9 +51,10 @@ interface DataContextType {
   groupedTravelBookings: TravelTripGroup[];
   addDestinasi: (d: Omit<Destinasi, "id">) => void;
   deleteDestinasi: (id: number) => void;
-  addBooking: (b: Omit<Booking, "id" | "status">) => void;
+  addBooking: (b: Omit<Booking, "id" | "status" | "statusPembayaran">) => void;
   assignDriver: (bookingId: number, driverId: number) => void;
   updateBookingStatus: (bookingId: number, status: BookingStatus) => void;
+  payBooking: (bookingId: number) => void;
 }
 
 const DataContext = createContext<DataContextType | null>(null);
@@ -86,7 +85,6 @@ const createTravelGroups = (bookings: Booking[], destinasi: Destinasi[]): Travel
   bookings.forEach((booking) => {
     const trip = destinasi.find((item) => item.id === booking.destinasiId);
     if (trip?.kategori !== "travel-mobil") return;
-    // Sewa unit dipisah per booking (bukan grup), hanya travel-sekali yang digrup harian
     if (booking.mode !== "travel-sekali") return;
 
     const key = `${booking.destinasiId}-${booking.tanggal}`;
@@ -95,6 +93,7 @@ const createTravelGroups = (bookings: Booking[], destinasi: Destinasi[]): Travel
     if (existing) {
       existing.bookingIds.push(booking.id);
       existing.totalPenumpang += booking.jumlah;
+      if (booking.statusPembayaran === "pending") existing.allPaid = false; // Mark group unpaid if anyone is pending
       if (!existing.driverId && booking.driverId) existing.driverId = booking.driverId;
       if (statusPriority[booking.status] > statusPriority[existing.status]) {
         existing.status = booking.status;
@@ -111,13 +110,13 @@ const createTravelGroups = (bookings: Booking[], destinasi: Destinasi[]): Travel
       totalPenumpang: booking.jumlah,
       driverId: booking.driverId,
       status: booking.status,
+      allPaid: booking.statusPembayaran === "lunas",
     });
   });
 
   return Array.from(groups.values()).sort((a, b) => a.tanggal.localeCompare(b.tanggal));
 };
 
-// Migrasi data lama dari localStorage agar punya tujuanList
 const migrateDestinasi = (raw: any[]): Destinasi[] => raw.map((d) => ({
   ...d,
   tujuanList: Array.isArray(d.tujuanList) ? d.tujuanList : [],
@@ -129,6 +128,7 @@ const migrateBookings = (raw: any[]): Booking[] => raw.map((b) => ({
   ...b,
   mode: b.mode ?? "wisata-paket",
   hargaTotal: b.hargaTotal ?? 0,
+  statusPembayaran: b.statusPembayaran ?? "pending", // Default migration to pending
 }));
 
 export const DataProvider = ({ children }: { children: ReactNode }) => {
@@ -137,6 +137,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     if (!saved) return initialDestinasi;
     try { return migrateDestinasi(JSON.parse(saved)); } catch { return initialDestinasi; }
   });
+  
   const [bookings, setBookings] = useState<Booking[]>(() => {
     const saved = localStorage.getItem("bookings");
     if (!saved) return [];
@@ -154,8 +155,12 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     setDestinasi((prev) => prev.filter((d) => d.id !== id));
   };
 
-  const addBooking = (b: Omit<Booking, "id" | "status">) => {
-    setBookings((prev) => [...prev, { ...b, id: prev.length + 1, status: "menunggu" }]);
+  const addBooking = (b: Omit<Booking, "id" | "status" | "statusPembayaran">) => {
+    setBookings((prev) => [...prev, { ...b, id: prev.length + 1, status: "menunggu", statusPembayaran: "pending" }]);
+  };
+
+  const payBooking = (bookingId: number) => {
+    setBookings((prev) => prev.map(b => b.id === bookingId ? { ...b, statusPembayaran: "lunas" } : b));
   };
 
   const assignDriver = (bookingId: number, driverId: number) => {
@@ -164,7 +169,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       if (!targetBooking) return prev;
 
       const targetDestinasi = destinasi.find((item) => item.id === targetBooking.destinasiId);
-      // Hanya travel sekali jalan yang digrup harian
       const shouldGroup = targetDestinasi?.kategori === "travel-mobil" && targetBooking.mode === "travel-sekali";
 
       return prev.map((booking) => {
@@ -204,7 +208,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const groupedTravelBookings = createTravelGroups(bookings, destinasi);
 
   return (
-    <DataContext.Provider value={{ destinasi, bookings, groupedTravelBookings, addDestinasi, deleteDestinasi, addBooking, assignDriver, updateBookingStatus }}>
+    <DataContext.Provider value={{ destinasi, bookings, groupedTravelBookings, addDestinasi, deleteDestinasi, addBooking, assignDriver, updateBookingStatus, payBooking }}>
       {children}
     </DataContext.Provider>
   );

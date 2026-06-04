@@ -30,7 +30,6 @@ const Admin = () => {
   if (!user || user.role !== "admin") return <Navigate to="/" />;
 
   const drivers = users.filter((u) => u.role === "driver");
-  // Booking individual = bukan travel-sekali (yang sudah digrup)
   const regularBookings = bookings.filter((b) => b.mode !== "travel-sekali");
 
   const handleAdd = (e: React.FormEvent) => {
@@ -110,7 +109,19 @@ const Admin = () => {
 
         <TabsContent value="booking">
           <Table>
-            <TableHeader><TableRow><TableHead>ID / Grup</TableHead><TableHead>Destinasi</TableHead><TableHead>Mode</TableHead><TableHead>Tanggal</TableHead><TableHead>Detail</TableHead><TableHead>Total</TableHead><TableHead>Status</TableHead><TableHead>Driver</TableHead></TableRow></TableHeader>
+            <TableHeader>
+              <TableRow>
+                <TableHead>ID / Grup</TableHead>
+                <TableHead>Destinasi</TableHead>
+                <TableHead>Mode</TableHead>
+                <TableHead>Tanggal</TableHead>
+                <TableHead>Detail</TableHead>
+                <TableHead>Total</TableHead>
+                <TableHead>Pembayaran</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Driver</TableHead>
+              </TableRow>
+            </TableHeader>
             <TableBody>
               {groupedTravelBookings.map((trip) => {
                 const d = destinasi.find((x) => x.id === trip.destinasiId);
@@ -123,10 +134,15 @@ const Admin = () => {
                     <TableCell>{trip.tanggal}</TableCell>
                     <TableCell>{trip.bookingIds.length} booking · {trip.totalPenumpang} orang</TableCell>
                     <TableCell>Rp {totalGrup.toLocaleString("id-ID")}</TableCell>
+                    <TableCell>
+                      {trip.allPaid ? <Badge variant="default">Lunas</Badge> : <Badge variant="destructive">Pending</Badge>}
+                    </TableCell>
                     <TableCell><Badge variant="outline">{trip.status}</Badge></TableCell>
                     <TableCell>
-                      <Select value={trip.driverId ? trip.driverId.toString() : undefined} onValueChange={(v) => { assignDriver(trip.representativeBookingId, Number(v)); toast.success("Driver ditugaskan ke trip harian"); }}>
-                        <SelectTrigger className="w-[160px]"><SelectValue placeholder="Pilih driver" /></SelectTrigger>
+                      <Select disabled={!trip.allPaid} value={trip.driverId ? trip.driverId.toString() : undefined} onValueChange={(v) => { assignDriver(trip.representativeBookingId, Number(v)); toast.success("Driver ditugaskan ke trip harian"); }}>
+                        <SelectTrigger className="w-[160px]">
+                          <SelectValue placeholder={trip.allPaid ? "Pilih driver" : "Menunggu Bayar"} />
+                        </SelectTrigger>
                         <SelectContent>
                           {drivers.map((dr) => <SelectItem key={dr.id} value={dr.id.toString()}>{dr.nama}</SelectItem>)}
                         </SelectContent>
@@ -151,10 +167,15 @@ const Admin = () => {
                     <TableCell>{b.tanggal}</TableCell>
                     <TableCell>{detail}</TableCell>
                     <TableCell>Rp {(b.hargaTotal ?? 0).toLocaleString("id-ID")}</TableCell>
+                    <TableCell>
+                      {b.statusPembayaran === "lunas" ? <Badge variant="default">Lunas</Badge> : <Badge variant="destructive">Pending</Badge>}
+                    </TableCell>
                     <TableCell><Badge variant="outline">{b.status}</Badge></TableCell>
                     <TableCell>
-                      <Select value={b.driverId ? b.driverId.toString() : undefined} onValueChange={(v) => { assignDriver(b.id, Number(v)); toast.success("Driver ditugaskan"); }}>
-                        <SelectTrigger className="w-[160px]"><SelectValue placeholder="Pilih driver" /></SelectTrigger>
+                      <Select disabled={b.statusPembayaran !== "lunas"} value={b.driverId ? b.driverId.toString() : undefined} onValueChange={(v) => { assignDriver(b.id, Number(v)); toast.success("Driver ditugaskan"); }}>
+                        <SelectTrigger className="w-[160px]">
+                          <SelectValue placeholder={b.statusPembayaran === "lunas" ? "Pilih driver" : "Menunggu Bayar"} />
+                        </SelectTrigger>
                         <SelectContent>
                           {drivers.map((dr) => <SelectItem key={dr.id} value={dr.id.toString()}>{dr.nama}</SelectItem>)}
                         </SelectContent>
@@ -163,7 +184,7 @@ const Admin = () => {
                   </TableRow>
                 );
               })}
-              {bookings.length === 0 && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Belum ada booking</TableCell></TableRow>}
+              {bookings.length === 0 && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">Belum ada booking</TableCell></TableRow>}
             </TableBody>
           </Table>
         </TabsContent>
